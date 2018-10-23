@@ -39,7 +39,8 @@ bool loadFromXMLText(TiXmlElement& element, ReaderWriter& config)
     return true;
   }
   std::string value(element.GetText());
-  config.setValue(key, value);
+//  config.setValue(key, value);
+  config.setValue("value", value);
   return true;
 }
 
@@ -48,28 +49,29 @@ bool loadFromXMLText(TiXmlElement& element, ReaderWriter& config)
 // ToDo: make TiXmlElement const
 bool loadFromXMLElement(TiXmlElement& element, ReaderWriter& config)
 {
+  std::cout << "Parsing element " << std::endl;
+
+  // Start a new array with the Value of the current element as key
+  std::string element_name = element.Value();
+  config.writeArray(element_name);
+
+  // Iterate through attributes
+  for (const TiXmlAttribute* attribute = element.FirstAttribute(); attribute != NULL; attribute = attribute->Next())
+  {
+      config.addArrayItem();
+      config.setValue(attribute->Name(), attribute->Value());
+      config.endArrayItem();
+  }
+
   if (element.FirstChildElement() == NULL)
   {
     std::cout << "Parsing text " << std::endl;
-    return loadFromXMLText(element, config);
+    config.addArrayItem();
+    loadFromXMLText(element, config);
+    config.endArrayItem();
   }
   else
   {
-    std::cout << "Parsing element " << std::endl;
-
-    // Start a new array with the Value of the current element as key
-    std::string element_name = element.Value();
-    config.writeArray(element_name);
-
-    // Iterate through attributes
-    // ToDo: this does not work if this element does not contain children (we don't end up here)
-    for (const TiXmlAttribute* attribute = element.FirstAttribute(); attribute != NULL; attribute = attribute->Next())
-    {
-        config.addArrayItem();
-        config.setValue(attribute->Name(), attribute->Value());
-        config.endArrayItem();
-    }
-
     // Recurse through models
     for(TiXmlElement* e = element.FirstChildElement(); e != NULL; e = e->NextSiblingElement())
     {
@@ -86,8 +88,8 @@ bool loadFromXMLElement(TiXmlElement& element, ReaderWriter& config)
       }
       config.endArrayItem();
     }
-    config.endArray();
   }
+  config.endArray();
 
   return true;
 
@@ -98,16 +100,6 @@ bool loadFromXMLElement(TiXmlElement& element, ReaderWriter& config)
 bool loadFromXMLFile(const std::string& filename, ReaderWriter& config)
 {
   config.setSource(filename);
-
-//  std::ifstream fin(filename.c_str());
-//  if (fin.fail())
-//  {
-//      config.addError("No such file: '" + filename + "'.");
-//      return false;
-//  }
-
-//  if (!loadFromXMLStream(fin, config))
-//      return false;
 
   // Load the file
   TiXmlDocument doc(filename);
@@ -122,7 +114,6 @@ bool loadFromXMLFile(const std::string& filename, ReaderWriter& config)
   }
 
   // Get the root
-  // ToDo: only sdf?
   TiXmlElement* root = doc.FirstChildElement();
 
   if (root->NextSibling() != NULL)
@@ -130,7 +121,6 @@ bool loadFromXMLFile(const std::string& filename, ReaderWriter& config)
     throw tue::config::ParseException("A valid XML file should only contain one root element");
   }
 
-//  std::string key("model");
   return loadFromXMLElement(*root, config);
 
 }
